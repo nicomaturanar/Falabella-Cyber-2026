@@ -301,7 +301,7 @@ gmv_total     = df_orders_f["price"].sum()
 total_items   = df_orders_f["items_count"].sum()
 ticket_prom   = gmv_total / total_ordenes if total_ordenes else 0
 col1.metric("🛍️ Órdenes totales",  f"{total_ordenes:,}")
-col2.metric("💰 GMV total",         f"${gmv_total:,.0f}")
+col2.metric("💰 Ventas (CLP)",         f"${gmv_total:,.0f}")
 col3.metric("📦 Unidades vendidas", f"{total_items:,}")
 col4.metric("🎯 Ticket promedio",   f"${ticket_prom:,.0f}")
 st.divider()
@@ -349,17 +349,20 @@ def tabla_performance(df, col, titulo, emoji):
     st.subheader(f"{emoji} Performance por {titulo}")
     agg = (
         df.groupby(col)
-        .agg(ordenes=("order_id", "nunique"), unidades=("qty", "sum"), gmv=("price", "sum"))
-        .reset_index().sort_values("gmv", ascending=False)
+        .agg(ordenes=("order_id", "nunique"), unidades=("qty", "sum"), ventas=("price", "sum"))
+        .reset_index().sort_values("ventas", ascending=False)
     )
-    agg.columns = [titulo, "Órdenes", "Unidades", "GMV"]
+    total_ventas = agg["ventas"].sum()
+    agg["share"] = (agg["ventas"] / total_ventas * 100).round(1) if total_ventas > 0 else 0
+    agg.columns = [titulo, "Órdenes", "Unidades", "Ventas (CLP)", "Share %"]
     c1, c2 = st.columns([1, 2])
     with c1:
         d = agg.copy()
-        d["GMV"] = d["GMV"].apply(lambda x: f"${x:,.0f}")
+        d["Ventas (CLP)"] = d["Ventas (CLP)"].apply(lambda x: f"${x:,.0f}")
+        d["Share %"] = d["Share %"].apply(lambda x: f"{x:.1f}%")
         st.dataframe(d, use_container_width=True, hide_index=True)
     with c2:
-        st.bar_chart(agg.set_index(titulo)["GMV"].sort_values(ascending=False).head(10))
+        st.bar_chart(agg.set_index(titulo)["Ventas (CLP)"].sort_values(ascending=False).head(10))
     st.divider()
 
 if not df_items_f.empty:
@@ -378,7 +381,7 @@ if not df_items_f.empty:
     prod_df["Producto"] = prod_df["sku"] + " — " + prod_df["nombre"]
     pd_display = prod_df[["Producto", "categoria", "marca", "linea", "genero", "unidades", "gmv"]].copy()
     pd_display.columns = ["Producto", "Categoría", "Marca", "Línea", "Género", "Unidades", "GMV"]
-    pd_display["GMV"] = pd_display["GMV"].apply(lambda x: f"${x:,.0f}")
+    pd_display["Ventas (CLP)"] = pd_display["Ventas (CLP)"].apply(lambda x: f"${x:,.0f}")
     st.dataframe(pd_display, use_container_width=True, hide_index=True)
     st.divider()
 
