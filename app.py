@@ -200,27 +200,32 @@ def get_all_items(orders):
             nombre = item.get("Name", "") or ""
             sku    = item.get("Sku", "") or ""
             linea, categoria = extraer_linea_y_categoria(nombre, sku)
+            shipping_raw = (item.get("ShippingType", "") or "").lower()
+            if shipping_raw == "own_warehouse" or shipping_raw == "own warehouse":
+                fulfillment = "Fulfillment by Falabella"
+            elif shipping_raw == "dropshipping":
+                fulfillment = "Fulfillment by Seller"
+            elif shipping_raw == "cross_docking" or shipping_raw == "cross docking":
+                fulfillment = "Cross Docking"
+            else:
+                fulfillment = shipping_raw.title() if shipping_raw else "No identificado"
             all_items.append({
-                "order_id":   order_id,
-                "created_at": pd.to_datetime(order.get("CreatedAt")),
-                "status":     item.get("Status", ""),
-                "sku":        sku,
-                "nombre":     nombre,
-                "marca":      extraer_marca(nombre, sku),
-                "linea":      linea,
-                "categoria":  categoria,
-                "genero":     extraer_genero(nombre),
-                "price":      float(item.get("PaidPrice", 0) or 0),
-                "qty":        int(item.get("QtyOrdered", 1) or 1),
+                "order_id":    order_id,
+                "created_at":  pd.to_datetime(order.get("CreatedAt")),
+                "status":      item.get("Status", ""),
+                "sku":         sku,
+                "nombre":      nombre,
+                "marca":       extraer_marca(nombre, sku),
+                "linea":       linea,
+                "categoria":   categoria,
+                "genero":      extraer_genero(nombre),
+                "fulfillment": fulfillment,
+                "price":       float(item.get("PaidPrice", 0) or 0),
+                "qty":         int(item.get("QtyOrdered", 1) or 1),
             })
         progress.progress((i + 1) / total, text=f"Cargando orden {i+1} de {total}...")
     progress.empty()
-    # DEBUG: mostrar primer item crudo
-    if all_items:
-        first_order_id = orders[0].get("OrderId")
-        raw = get_order_items(first_order_id)
-        if raw:
-            st.expander("🔧 Debug: campos del primer item (borra esto después)").json(raw[0])
+
     return pd.DataFrame(all_items) if all_items else pd.DataFrame()
 
 def orders_to_df(orders):
@@ -228,22 +233,12 @@ def orders_to_df(orders):
         return pd.DataFrame()
     rows = []
     for o in orders:
-        shipping = o.get("ShippingType", "") or ""
-        if shipping == "own_warehouse":
-            fulfillment = "Fulfillment by Falabella"
-        elif shipping == "dropshipping":
-            fulfillment = "Fulfillment by Seller"
-        elif shipping == "cross_docking":
-            fulfillment = "Cross Docking"
-        else:
-            fulfillment = "No identificado"
         rows.append({
             "order_id":    o.get("OrderId"),
             "status":      o.get("Statuses", {}).get("Status", ""),
             "created_at":  pd.to_datetime(o.get("CreatedAt")),
             "price":       float(o.get("Price", 0) or 0),
             "items_count": int(o.get("ItemsCount", 0) or 0),
-            "fulfillment": fulfillment,
         })
     df = pd.DataFrame(rows)
     df["hour"] = df["created_at"].dt.floor("h")
@@ -288,28 +283,24 @@ with st.sidebar:
     st.header("🔍 Filtros")
     filtro_cats = filtro_marcas = filtro_lineas = filtro_generos = filtro_fulfillment = []
     if not df_items.empty:
-        filtro_fulfillment = st.multiselect("🚚 Fulfillment", sorted(df_orders["fulfillment"].dropna().unique()))
+        filtro_fulfillment = st.multiselect("🚚 Fulfillment", sorted(df_items["fulfillment"].dropna().unique()))
         filtro_cats    = st.multiselect("🗂️ Categoría", sorted(df_items["categoria"].dropna().unique()))
         filtro_marcas  = st.multiselect("🏷️ Marca",     sorted(df_items["marca"].dropna().unique()))
         filtro_lineas  = st.multiselect("👟 Línea",     sorted(df_items["linea"].dropna().unique()))
         filtro_generos = st.multiselect("👤 Género",    sorted(df_items["genero"].dropna().unique()))
 
 df_items_f = df_items.copy()
-if filtro_cats:    df_items_f = df_items_f[df_items_f["categoria"].isin(filtro_cats)]
-if filtro_marcas:  df_items_f = df_items_f[df_items_f["marca"].isin(filtro_marcas)]
-if filtro_lineas:  df_items_f = df_items_f[df_items_f["linea"].isin(filtro_lineas)]
-if filtro_generos: df_items_f = df_items_f[df_items_f["genero"].isin(filtro_generos)]
+if filtro_fulfillment: df_items_f = df_items_f[df_items_f["fulfillment"].isin(filtro_fulfillment)]
+if filtro_cats:        df_items_f = df_items_f[df_items_f["categoria"].isin(filtro_cats)]
+if filtro_marcas:      df_items_f = df_items_f[df_items_f["marca"].isin(filtro_marcas)]
+if filtro_lineas:      df_items_f = df_items_f[df_items_f["linea"].isin(filtro_lineas)]
+if filtro_generos:     df_items_f = df_items_f[df_items_f["genero"].isin(filtro_generos)]
 
 hay_filtros = any([filtro_cats, filtro_marcas, filtro_lineas, filtro_generos, filtro_fulfillment])
-if filtro_fulfillment:
-    df_orders_base = df_orders[df_orders["fulfillment"].isin(filtro_fulfillment)]
+if hay_filtros and not df_items_f.empty:
+    df_orders_f = df_orders[df_orders["order_id"].isin(df_items_f["order_id"].unique())]
 else:
-    df_orders_base = df_orders
-
-if any([filtro_cats, filtro_marcas, filtro_lineas, filtro_generos]) and not df_items_f.empty:
-    df_orders_f = df_orders_base[df_orders_base["order_id"].isin(df_items_f["order_id"].unique())]
-else:
-    df_orders_f = df_orders_base
+    df_orders_f = df_orders
 
 if hay_filtros:
     partes = []
@@ -415,8 +406,8 @@ if not df_items_f.empty:
 # ── Performance por Fulfillment ─────────────────────────────────────────────
 st.subheader("🚚 Performance por Fulfillment")
 ff_df = (
-    df_orders_f.groupby("fulfillment")
-    .agg(ordenes=("order_id", "count"), unidades=("items_count", "sum"), ventas=("price", "sum"))
+    df_items_f.groupby("fulfillment")
+    .agg(ordenes=("order_id", "nunique"), unidades=("qty", "sum"), ventas=("price", "sum"))
     .reset_index().sort_values("ventas", ascending=False)
 )
 total_ventas_ff = ff_df["ventas"].sum()
