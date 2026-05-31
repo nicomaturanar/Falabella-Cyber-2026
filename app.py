@@ -107,7 +107,7 @@ def extraer_linea_y_categoria(nombre, sku):
 SKU_PREFIJOS = {
     "PJ":  "Panama Jack",
     "PO":  "Pollini",
-    "16H": "16 Hrs",
+    "16": "16 Hrs",
     "BR":  "Bruno Rossi",
 }
 
