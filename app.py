@@ -191,7 +191,6 @@ def get_order_items(order_id):
 
 def get_all_items(orders):
     all_items = []
-    all_raw_shipping = []
     progress = st.progress(0, text="Cargando detalle de órdenes...")
     total = len(orders)
     for i, order in enumerate(orders):
@@ -202,9 +201,8 @@ def get_all_items(orders):
             sku    = item.get("Sku", "") or ""
             linea, categoria = extraer_linea_y_categoria(nombre, sku)
             shipping_raw = (item.get("ShippingType", "") or "").strip()
-            all_raw_shipping.append(shipping_raw)
             shipping_norm = shipping_raw.lower().replace("_", " ")
-            if "own" in shipping_norm or shipping_raw == "Fulfillment":
+            if "own" in shipping_norm or shipping_norm == "fulfillment":
                 fulfillment = "Fulfillment by Falabella"
             else:
                 fulfillment = "Bodega 101"
@@ -225,10 +223,7 @@ def get_all_items(orders):
         progress.progress((i + 1) / total, text=f"Cargando orden {i+1} de {total}...")
     progress.empty()
 
-    # DEBUG TEMPORAL: mostrar valores únicos raw de ShippingType
-    if all_raw_shipping:
-        unicos = list(set(all_raw_shipping))
-        st.info(f"🔧 Valores raw de ShippingType: {unicos}")
+
 
     return pd.DataFrame(all_items) if all_items else pd.DataFrame()
 
