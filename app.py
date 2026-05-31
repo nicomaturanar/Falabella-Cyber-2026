@@ -6,6 +6,7 @@ import requests
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 import time
+import unicodedata
 
 st.set_page_config(
     page_title="Falabella Marketplace — Cyber Dashboard",
@@ -18,6 +19,13 @@ API_KEY  = st.secrets["FALABELLA_API_KEY"]
 BASE_URL = "https://sellercenter-api.falabella.com/"
 
 # ── Diccionarios de extracción ───────────────────────────────────────────────
+def normalizar(texto):
+    texto = texto.upper()
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto)
+        if unicodedata.category(c) != "Mn"
+    )
+
 MARCAS = [
     "PANAMA JACK", "16 HRS", "BRUNO ROSSI", "ZAPPA", "POLLINI",
     "DAKOTA", "ENDURO", "IBIZAS HERITAGE", "LUZ DA LUA", "MINGO", "SHERPAS"
@@ -43,45 +51,46 @@ LINEAS_BAGS = [
     "LLAVERO", "MOCHILA", "PANUELOS", "STRAPS", "TOTE"
 ]
 
-GENEROS = ["NIÑA", "NIÑO", "HOMBRE", "MUJER", "UNISEX"]
+GENEROS = ["NINA", "NINO", "HOMBRE", "MUJER", "UNISEX"]
 
 def extraer_linea_y_categoria(nombre, sku):
-    nombre_up = nombre.upper()
-    sku_up    = sku.upper()
+    n = normalizar(nombre)
+    s = normalizar(sku)
 
     # Seguridad por SKU o nombre
-    if "SEGURIDAD" in nombre_up or "SEGURIDAD" in sku_up:
+    if "SEGURIDAD" in n or "SEGURIDAD" in s:
         return "Seguridad", "Calzado"
 
     # Ropa (orden importa: términos más específicos primero)
     for linea in LINEAS_ROPA:
-        if linea in nombre_up:
+        if normalizar(linea) in n:
             return linea.title(), "Ropa"
 
     # Bags & Accesorios
     for linea in LINEAS_BAGS:
-        if linea in nombre_up:
+        if normalizar(linea) in n:
             return linea.title(), "Bags & Accesorios"
 
     # Calzado
     for linea in LINEAS_CALZADO:
-        if linea in nombre_up:
+        if normalizar(linea) in n:
             return linea.title(), "Calzado"
 
     return "Sin línea", "No identificado"
 
 def extraer_marca(nombre):
-    nombre_up = nombre.upper()
+    n = normalizar(nombre)
     for marca in MARCAS:
-        if marca in nombre_up:
+        if normalizar(marca) in n:
             return marca.title()
     return "Sin marca"
 
+GENERO_DISPLAY = {"NINA": "Niña", "NINO": "Niño", "HOMBRE": "Hombre", "MUJER": "Mujer", "UNISEX": "Unisex"}
 def extraer_genero(nombre):
-    nombre_up = nombre.upper()
+    n = normalizar(nombre)
     for genero in GENEROS:
-        if genero in nombre_up:
-            return genero.title()
+        if genero in n:
+            return GENERO_DISPLAY.get(genero, genero.title())
     return "Sin género"
 
 # ── API ──────────────────────────────────────────────────────────────────────
