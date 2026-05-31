@@ -215,6 +215,12 @@ def get_all_items(orders):
             })
         progress.progress((i + 1) / total, text=f"Cargando orden {i+1} de {total}...")
     progress.empty()
+    # DEBUG: mostrar primer item crudo
+    if all_items:
+        first_order_id = orders[0].get("OrderId")
+        raw = get_order_items(first_order_id)
+        if raw:
+            st.expander("🔧 Debug: campos del primer item (borra esto después)").json(raw[0])
     return pd.DataFrame(all_items) if all_items else pd.DataFrame()
 
 def orders_to_df(orders):
