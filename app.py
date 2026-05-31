@@ -27,7 +27,7 @@ def normalizar(texto):
     )
 
 MARCAS = [
-    "PANAMA JACK", "16 HRS", "BRUNO ROSSI", "ZAPPA", "POLLINI",
+    "PANAMA JACK", "PJACK", "16 HRS", "BRUNO ROSSI", "ZAPPA", "POLLINI",
     "DAKOTA", "ENDURO", "IBIZAS HERITAGE", "LUZ DA LUA", "MINGO", "SHERPAS"
 ]
 
@@ -40,12 +40,12 @@ LINEAS_ROPA = [
     "BERMUDA", "BUZO", "CAMISA MC", "CAMISA ML", "CAMISA",
     "CHAQUETAS", "CHAQUETA", "CORTAVIENTO", "GORRO", "JEANS", "JOCKEY",
     "JOGGER", "PANTALONES", "PANTALON", "PARKA ML", "PARKA",
-    "POLAR", "POLERA MC", "POLERA ML", "POLERA PIQUE", "POLERON",
+    "POLAR", "POLERA MC", "POLERA ML", "POLERA PIQUE", "POLERON", "POLERA", "MANGA CORTA", "MANGA LARGA",
     "SHORT", "TRAJE DE BAÑO"
 ]
 
 LINEAS_BAGS = [
-    "BACKPACK", "BANANO", "BANDANAS", "BANDOLERA", "BELTBAG", "BILLETERAS",
+    "BACKPACK", "BANANO", "BANDANAS", "BANDANA", "BANDOLERA", "BELTBAG", "BILLETERAS",
     "BOLSO", "BOWLING", "CALCETIN", "CARTERAS", "CHARMS", "CINTURONES",
     "CINTURON", "CLASICAS", "CLUTCH", "CROSSBODY", "ESTUCHES", "FIESTA",
     "LLAVERO", "MOCHILA", "PANUELOS", "STRAPS", "TOTE"
@@ -61,10 +61,11 @@ def extraer_linea_y_categoria(nombre, sku):
     if "SEGURIDAD" in n or "SEGURIDAD" in s:
         return "Seguridad", "Calzado"
 
-    # Ropa (orden importa: términos más específicos primero)
-    for linea in LINEAS_ROPA:
-        if normalizar(linea) in n:
-            return linea.title(), "Ropa"
+    # Ropa (cada linea tiene multiples terminos)
+    for linea_display, terminos in LINEAS_ROPA:
+        for termino in terminos:
+            if normalizar(termino) in n:
+                return linea_display, "Ropa"
 
     # Bags & Accesorios
     for linea in LINEAS_BAGS:
@@ -76,7 +77,7 @@ def extraer_linea_y_categoria(nombre, sku):
         if normalizar(linea) in n:
             return linea.title(), "Calzado"
 
-    return "Sin línea", "No identificado"
+    return "Sin linea", "No identificado"
 
 def extraer_marca(nombre):
     n = normalizar(nombre)
