@@ -212,7 +212,7 @@ with tab2:
 st.subheader("🕐 Tabla hora a hora")
 hora_actual = datetime.now().hour
 horas = [f"{h:02d}:00" for h in range(hora_actual + 1)]
-hourly_table = hourly.set_index("hour_label").reindex(horas, fill_value=0).reset_index()
+hourly_table = hourly[["hour_label", "ordenes", "gmv"]].set_index("hour_label").reindex(horas, fill_value=0).reset_index()
 hourly_table.columns = ["Hora", "Órdenes", "GMV"]
 
 if not df_items_f.empty:
