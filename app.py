@@ -200,15 +200,12 @@ def get_all_items(orders):
             nombre = item.get("Name", "") or ""
             sku    = item.get("Sku", "") or ""
             linea, categoria = extraer_linea_y_categoria(nombre, sku)
-            shipping_raw = (item.get("ShippingType", "") or "").lower()
-            if shipping_raw == "own_warehouse" or shipping_raw == "own warehouse":
+            shipping_raw = (item.get("ShippingType", "") or "").strip()
+            shipping_norm = shipping_raw.lower().replace("_", " ")
+            if "own" in shipping_norm or shipping_raw == "Fulfillment":
                 fulfillment = "Fulfillment by Falabella"
-            elif shipping_raw == "dropshipping":
-                fulfillment = "Fulfillment by Seller"
-            elif shipping_raw == "cross_docking" or shipping_raw == "cross docking":
-                fulfillment = "Cross Docking"
             else:
-                fulfillment = shipping_raw.title() if shipping_raw else "No identificado"
+                fulfillment = "Bodega 101"
             all_items.append({
                 "order_id":    order_id,
                 "created_at":  pd.to_datetime(order.get("CreatedAt")),
@@ -319,9 +316,35 @@ gmv_total     = df_orders_f["price"].sum()
 total_items   = df_orders_f["items_count"].sum()
 ticket_prom   = gmv_total / total_ordenes if total_ordenes else 0
 col1.metric("🛍️ Órdenes totales",  f"{total_ordenes:,}")
-col2.metric("💰 Ventas (CLP)",         clp(gmv_total))
+col2.metric("💰 Ventas (CLP)",      clp(gmv_total))
 col3.metric("📦 Unidades vendidas", f"{total_items:,}")
 col4.metric("🎯 Ticket promedio",   clp(ticket_prom))
+
+# ── Desglose por Fulfillment ──────────────────────────────────────────────────
+st.subheader("📦 Desglose por Fulfillment")
+if not df_items_f.empty:
+    ff_resumen = (
+        df_items_f.groupby("fulfillment")
+        .agg(ordenes=("order_id", "nunique"), unidades=("qty", "sum"), ventas=("price", "sum"))
+        .reset_index()
+    )
+    total_ventas_res = ff_resumen["ventas"].sum()
+    ff_resumen["share"] = (ff_resumen["ventas"] / total_ventas_res * 100).round(1) if total_ventas_res > 0 else 0
+
+    # Fila total
+    total_row = pd.DataFrame([{
+        "fulfillment": "Total",
+        "ordenes":     ff_resumen["ordenes"].sum(),
+        "unidades":    ff_resumen["unidades"].sum(),
+        "ventas":      ff_resumen["ventas"].sum(),
+        "share":       100.0,
+    }])
+    ff_tabla = pd.concat([ff_resumen, total_row], ignore_index=True)
+    ff_tabla["ventas"] = ff_tabla["ventas"].apply(clp)
+    ff_tabla["share"]  = ff_tabla["share"].apply(lambda x: f"{x:.1f}%")
+    ff_tabla.columns = ["Fulfillment", "Órdenes", "Unidades", "Ventas (CLP)", "Share %"]
+    st.dataframe(ff_tabla, use_container_width=True, hide_index=True)
+
 st.divider()
 
 # ── Hora a hora ──────────────────────────────────────────────────────────────
