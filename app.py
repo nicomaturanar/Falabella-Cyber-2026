@@ -223,6 +223,11 @@ def get_all_items(orders):
         progress.progress((i + 1) / total, text=f"Cargando orden {i+1} de {total}...")
     progress.empty()
 
+    # DEBUG TEMPORAL: mostrar todos los valores únicos de ShippingType
+    if all_items:
+        df_debug = pd.DataFrame(all_items)
+        st.info(f"🔧 Valores únicos de ShippingType: {df_debug['fulfillment'].unique().tolist()}")
+
     return pd.DataFrame(all_items) if all_items else pd.DataFrame()
 
 def orders_to_df(orders):
