@@ -53,26 +53,51 @@ LINEAS_BAGS = [
 
 GENEROS = ["NINA", "NINO", "HOMBRE", "MUJER", "UNISEX"]
 
+# Mapa de terminos -> linea display para Ropa
+ROPA_TERMINOS = {
+    "BERMUDA":      "Bermuda",
+    "BUZO":         "Buzo",
+    "CAMISA MC":    "Camisa",
+    "CAMISA ML":    "Camisa",
+    "CAMISA":       "Camisa",
+    "CHAQUETAS":    "Chaqueta",
+    "CHAQUETA":     "Chaqueta",
+    "CORTAVIENTO":  "Cortaviento",
+    "GORRO":        "Gorro",
+    "JEANS":        "Jeans",
+    "JOCKEY":       "Jockey",
+    "JOGGER":       "Jogger",
+    "PANTALONES":   "Pantalon",
+    "PANTALON":     "Pantalon",
+    "PARKA ML":     "Parka",
+    "PARKA":        "Parka",
+    "POLAR":        "Polar",
+    "POLERA MC":    "Polera",
+    "POLERA ML":    "Polera",
+    "POLERA PIQUE": "Polera",
+    "POLERON":      "Polera",
+    "POLERA":       "Polera",
+    "MANGA CORTA":  "Polera",
+    "MANGA LARGA":  "Polera",
+    "SHORT":        "Short",
+    "TRAJE DE BANO":"Traje de Bano",
+}
+
 def extraer_linea_y_categoria(nombre, sku):
     n = normalizar(nombre)
     s = normalizar(sku)
 
-    # Seguridad por SKU o nombre
     if "SEGURIDAD" in n or "SEGURIDAD" in s:
         return "Seguridad", "Calzado"
 
-    # Ropa (cada linea tiene multiples terminos)
-    for linea_display, terminos in LINEAS_ROPA:
-        for termino in terminos:
-            if normalizar(termino) in n:
-                return linea_display, "Ropa"
+    for termino, linea_display in ROPA_TERMINOS.items():
+        if normalizar(termino) in n:
+            return linea_display, "Ropa"
 
-    # Bags & Accesorios
     for linea in LINEAS_BAGS:
         if normalizar(linea) in n:
             return linea.title(), "Bags & Accesorios"
 
-    # Calzado
     for linea in LINEAS_CALZADO:
         if normalizar(linea) in n:
             return linea.title(), "Calzado"
