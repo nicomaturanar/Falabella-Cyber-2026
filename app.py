@@ -83,6 +83,10 @@ ROPA_TERMINOS = {
     "TRAJE DE BANO":"Traje de Bano",
 }
 
+def clp(valor):
+    """Formatea un numero al estilo chileno con puntos como separador de miles."""
+    return "$" + f"{int(valor):,}".replace(",", ".")
+
 def extraer_linea_y_categoria(nombre, sku):
     n = normalizar(nombre)
     s = normalizar(sku)
@@ -301,9 +305,9 @@ gmv_total     = df_orders_f["price"].sum()
 total_items   = df_orders_f["items_count"].sum()
 ticket_prom   = gmv_total / total_ordenes if total_ordenes else 0
 col1.metric("🛍️ Órdenes totales",  f"{total_ordenes:,}")
-col2.metric("💰 Ventas (CLP)",         f"${gmv_total:,.0f}")
+col2.metric("💰 Ventas (CLP)",         clp(gmv_total))
 col3.metric("📦 Unidades vendidas", f"{total_items:,}")
-col4.metric("🎯 Ticket promedio",   f"${ticket_prom:,.0f}")
+col4.metric("🎯 Ticket promedio",   clp(ticket_prom))
 st.divider()
 
 # ── Hora a hora ──────────────────────────────────────────────────────────────
@@ -338,7 +342,7 @@ hourly_table["Órd. Acum."]   = hourly_table["Órdenes"].cumsum()
 hourly_table["Ticket Prom."] = (hourly_table["GMV"] / hourly_table["Órdenes"].replace(0, pd.NA)).fillna(0)
 ht = hourly_table.copy()
 for col in ["GMV", "GMV Acum.", "Ticket Prom."]:
-    ht[col] = ht[col].apply(lambda x: f"${x:,.0f}")
+    ht[col] = ht[col].apply(lambda x: clp(x))
 ht["Órdenes"]    = ht["Órdenes"].astype(int)
 ht["Órd. Acum."] = ht["Órd. Acum."].astype(int)
 st.dataframe(ht[["Hora", "Órdenes", "Órd. Acum.", "Unidades", "GMV", "GMV Acum.", "Ticket Prom."]], use_container_width=True, hide_index=True)
@@ -358,7 +362,7 @@ def tabla_performance(df, col, titulo, emoji):
     c1, c2 = st.columns([1, 2])
     with c1:
         d = agg.copy()
-        d["Ventas (CLP)"] = d["Ventas (CLP)"].apply(lambda x: f"${x:,.0f}")
+        d["Ventas (CLP)"] = d["Ventas (CLP)"].apply(lambda x: clp(x))
         d["Share %"] = d["Share %"].apply(lambda x: f"{x:.1f}%")
         st.dataframe(d, use_container_width=True, hide_index=True)
     with c2:
@@ -381,7 +385,7 @@ if not df_items_f.empty:
     prod_df["Producto"] = prod_df["sku"] + " — " + prod_df["nombre"]
     pd_display = prod_df[["Producto", "categoria", "marca", "linea", "genero", "unidades", "gmv"]].copy()
     pd_display.columns = ["Producto", "Categoría", "Marca", "Línea", "Género", "Unidades", "GMV"]
-    pd_display["Ventas (CLP)"] = pd_display["Ventas (CLP)"].apply(lambda x: f"${x:,.0f}")
+    pd_display["Ventas (CLP)"] = pd_display["Ventas (CLP)"].apply(lambda x: clp(x))
     st.dataframe(pd_display, use_container_width=True, hide_index=True)
     st.divider()
 
