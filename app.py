@@ -27,7 +27,7 @@ def normalizar(texto):
     )
 
 MARCAS = [
-    "PANAMA JACK", "PJACK", "16 HRS", "BRUNO ROSSI", "ZAPPA", "POLLINI",
+    "PANAMA JACK", "PJACK", "16 HRS", "PLUMA", "SHERPA", "BRUNO ROSSI", "ZAPPA", "POLLINI",
     "DAKOTA", "ENDURO", "IBIZAS HERITAGE", "LUZ DA LUA", "MINGO", "SHERPAS"
 ]
 
@@ -104,16 +104,31 @@ def extraer_linea_y_categoria(nombre, sku):
 
     return "Sin linea", "No identificado"
 
-def extraer_marca(nombre):
+SKU_PREFIJOS = {
+    "PJ":  "Panama Jack",
+    "PO":  "Pollini",
+    "16H": "16 Hrs",
+    "BR":  "Bruno Rossi",
+}
+
+def extraer_marca(nombre, sku=""):
     n = normalizar(nombre)
     for marca in MARCAS:
         if normalizar(marca) in n:
             return marca.title()
+    # Fallback: prefijo de SKU
+    sku_up = sku.upper()
+    for prefijo, marca in SKU_PREFIJOS.items():
+        if sku_up.startswith(prefijo):
+            return marca
     return "Sin marca"
 
 GENERO_DISPLAY = {"NINA": "Niña", "NINO": "Niño", "HOMBRE": "Hombre", "MUJER": "Mujer", "UNISEX": "Unisex"}
 def extraer_genero(nombre):
     n = normalizar(nombre)
+    # Cartera siempre es Mujer
+    if "CARTERA" in n:
+        return "Mujer"
     for genero in GENEROS:
         if genero in n:
             return GENERO_DISPLAY.get(genero, genero.title())
@@ -187,7 +202,7 @@ def get_all_items(orders):
                 "status":     item.get("Status", ""),
                 "sku":        sku,
                 "nombre":     nombre,
-                "marca":      extraer_marca(nombre),
+                "marca":      extraer_marca(nombre, sku),
                 "linea":      linea,
                 "categoria":  categoria,
                 "genero":     extraer_genero(nombre),
