@@ -323,7 +323,7 @@ col3.metric("📦 Unidades vendidas", f"{total_items:,}")
 col4.metric("🎯 Ticket promedio",   clp(ticket_prom))
 
 # ── Desglose por Fulfillment ──────────────────────────────────────────────────
-st.subheader("📦 Desglose por Fulfillment")
+st.subheader("📊 Performance General")
 if not df_items_f.empty:
     ff_resumen = (
         df_items_f.groupby("fulfillment")
@@ -347,7 +347,7 @@ if not df_items_f.empty:
 st.divider()
 
 # ── Desglose por Fulfillment ──────────────────────────────────────────────────
-st.subheader("📦 Desglose por Fulfillment")
+st.subheader("📊 Performance General")
 if not df_items_f.empty:
     ff_resumen = (
         df_items_f.groupby("fulfillment")
