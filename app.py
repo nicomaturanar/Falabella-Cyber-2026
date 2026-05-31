@@ -222,12 +222,22 @@ def orders_to_df(orders):
         return pd.DataFrame()
     rows = []
     for o in orders:
+        shipping = o.get("ShippingType", "") or ""
+        if shipping == "own_warehouse":
+            fulfillment = "Fulfillment by Falabella"
+        elif shipping == "dropshipping":
+            fulfillment = "Fulfillment by Seller"
+        elif shipping == "cross_docking":
+            fulfillment = "Cross Docking"
+        else:
+            fulfillment = "No identificado"
         rows.append({
             "order_id":    o.get("OrderId"),
             "status":      o.get("Statuses", {}).get("Status", ""),
             "created_at":  pd.to_datetime(o.get("CreatedAt")),
             "price":       float(o.get("Price", 0) or 0),
             "items_count": int(o.get("ItemsCount", 0) or 0),
+            "fulfillment": fulfillment,
         })
     df = pd.DataFrame(rows)
     df["hour"] = df["created_at"].dt.floor("h")
@@ -270,8 +280,9 @@ df_items = get_all_items(orders_raw)
 with st.sidebar:
     st.divider()
     st.header("🔍 Filtros")
-    filtro_cats = filtro_marcas = filtro_lineas = filtro_generos = []
+    filtro_cats = filtro_marcas = filtro_lineas = filtro_generos = filtro_fulfillment = []
     if not df_items.empty:
+        filtro_fulfillment = st.multiselect("🚚 Fulfillment", sorted(df_orders["fulfillment"].dropna().unique()))
         filtro_cats    = st.multiselect("🗂️ Categoría", sorted(df_items["categoria"].dropna().unique()))
         filtro_marcas  = st.multiselect("🏷️ Marca",     sorted(df_items["marca"].dropna().unique()))
         filtro_lineas  = st.multiselect("👟 Línea",     sorted(df_items["linea"].dropna().unique()))
@@ -283,18 +294,24 @@ if filtro_marcas:  df_items_f = df_items_f[df_items_f["marca"].isin(filtro_marca
 if filtro_lineas:  df_items_f = df_items_f[df_items_f["linea"].isin(filtro_lineas)]
 if filtro_generos: df_items_f = df_items_f[df_items_f["genero"].isin(filtro_generos)]
 
-hay_filtros = any([filtro_cats, filtro_marcas, filtro_lineas, filtro_generos])
-if hay_filtros and not df_items_f.empty:
-    df_orders_f = df_orders[df_orders["order_id"].isin(df_items_f["order_id"].unique())]
+hay_filtros = any([filtro_cats, filtro_marcas, filtro_lineas, filtro_generos, filtro_fulfillment])
+if filtro_fulfillment:
+    df_orders_base = df_orders[df_orders["fulfillment"].isin(filtro_fulfillment)]
 else:
-    df_orders_f = df_orders
+    df_orders_base = df_orders
+
+if any([filtro_cats, filtro_marcas, filtro_lineas, filtro_generos]) and not df_items_f.empty:
+    df_orders_f = df_orders_base[df_orders_base["order_id"].isin(df_items_f["order_id"].unique())]
+else:
+    df_orders_f = df_orders_base
 
 if hay_filtros:
     partes = []
-    if filtro_cats:    partes.append(f"Categoría: **{', '.join(filtro_cats)}**")
-    if filtro_marcas:  partes.append(f"Marca: **{', '.join(filtro_marcas)}**")
-    if filtro_lineas:  partes.append(f"Línea: **{', '.join(filtro_lineas)}**")
-    if filtro_generos: partes.append(f"Género: **{', '.join(filtro_generos)}**")
+    if filtro_fulfillment: partes.append(f"Fulfillment: **{', '.join(filtro_fulfillment)}**")
+    if filtro_cats:        partes.append(f"Categoría: **{', '.join(filtro_cats)}**")
+    if filtro_marcas:      partes.append(f"Marca: **{', '.join(filtro_marcas)}**")
+    if filtro_lineas:      partes.append(f"Línea: **{', '.join(filtro_lineas)}**")
+    if filtro_generos:     partes.append(f"Género: **{', '.join(filtro_generos)}**")
     st.info(f"🔍 Filtros activos → {' | '.join(partes)}")
 
 # ── KPIs ─────────────────────────────────────────────────────────────────────
@@ -384,10 +401,30 @@ if not df_items_f.empty:
     )
     prod_df["Producto"] = prod_df["sku"] + " — " + prod_df["nombre"]
     pd_display = prod_df[["Producto", "categoria", "marca", "linea", "genero", "unidades", "gmv"]].copy()
-    pd_display.columns = ["Producto", "Categoría", "Marca", "Línea", "Género", "Unidades", "GMV"]
-    pd_display["Ventas (CLP)"] = pd_display["Ventas (CLP)"].apply(lambda x: clp(x))
+    pd_display.columns = ["Producto", "Categoría", "Marca", "Línea", "Género", "Unidades", "Ventas (CLP)"]
+    pd_display["Ventas (CLP)"] = pd_display["Ventas (CLP)"].apply(clp)
     st.dataframe(pd_display, use_container_width=True, hide_index=True)
     st.divider()
+
+# ── Performance por Fulfillment ─────────────────────────────────────────────
+st.subheader("🚚 Performance por Fulfillment")
+ff_df = (
+    df_orders_f.groupby("fulfillment")
+    .agg(ordenes=("order_id", "count"), unidades=("items_count", "sum"), ventas=("price", "sum"))
+    .reset_index().sort_values("ventas", ascending=False)
+)
+total_ventas_ff = ff_df["ventas"].sum()
+ff_df["share"] = (ff_df["ventas"] / total_ventas_ff * 100).round(1) if total_ventas_ff > 0 else 0
+ff_display = ff_df.copy()
+ff_display["ventas"] = ff_display["ventas"].apply(clp)
+ff_display["share"]  = ff_display["share"].apply(lambda x: f"{x:.1f}%")
+ff_display.columns = ["Fulfillment", "Órdenes", "Unidades", "Ventas (CLP)", "Share %"]
+c1, c2 = st.columns([1, 2])
+with c1:
+    st.dataframe(ff_display, use_container_width=True, hide_index=True)
+with c2:
+    st.bar_chart(ff_df.set_index("fulfillment")["ventas"])
+st.divider()
 
 # ── Estado órdenes ───────────────────────────────────────────────────────────
 st.subheader("🔖 Estado de órdenes")
