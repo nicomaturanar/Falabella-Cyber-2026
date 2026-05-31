@@ -144,6 +144,15 @@ if df_orders.empty:
 
 df_items = get_all_items(orders_raw)
 
+
+# ── DEBUG TEMPORAL: mostrar campos del primer item ───────────────────────────
+if not df_items.empty and st.sidebar.checkbox("🔧 Mostrar campos raw API", value=False):
+    with st.expander("📦 Campos raw del primer item (debug)"):
+        order_id_sample = orders_raw[0].get("OrderId")
+        raw_items = get_order_items(order_id_sample)
+        if raw_items:
+            st.json(raw_items[0])
+
 # ── Filtros de Marca y Categoría ─────────────────────────────────────────────
 with st.sidebar:
     st.divider()
