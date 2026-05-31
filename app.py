@@ -454,22 +454,66 @@ if not df_items_f.empty:
 
 # ── Performance por Fulfillment ─────────────────────────────────────────────
 st.subheader("🚚 Performance por Fulfillment")
-ff_df = (
-    df_items_f.groupby("fulfillment")
-    .agg(ordenes=("order_id", "nunique"), unidades=("qty", "sum"), ventas=("price", "sum"))
-    .reset_index().sort_values("ventas", ascending=False)
-)
-total_ventas_ff = ff_df["ventas"].sum()
-ff_df["share"] = (ff_df["ventas"] / total_ventas_ff * 100).round(1) if total_ventas_ff > 0 else 0
-ff_display = ff_df.copy()
-ff_display["ventas"] = ff_display["ventas"].apply(clp)
-ff_display["share"]  = ff_display["share"].apply(lambda x: f"{x:.1f}%")
-ff_display.columns = ["Fulfillment", "Órdenes", "Unidades", "Ventas (CLP)", "Share %"]
-c1, c2 = st.columns([1, 2])
-with c1:
+if not df_items_f.empty:
+    ff_df = (
+        df_items_f.groupby("fulfillment")
+        .agg(ordenes=("order_id", "nunique"), unidades=("qty", "sum"), ventas=("price", "sum"))
+        .reset_index().sort_values("ventas", ascending=False)
+    )
+    total_ventas_ff = ff_df["ventas"].sum()
+    ff_df["share"] = (ff_df["ventas"] / total_ventas_ff * 100).round(1) if total_ventas_ff > 0 else 0
+    ff_display = ff_df.copy()
+    ff_display["ventas"] = ff_display["ventas"].apply(clp)
+    ff_display["share"]  = ff_display["share"].apply(lambda x: f"{x:.1f}%")
+    ff_display.columns = ["Fulfillment", "Órdenes", "Unidades", "Ventas (CLP)", "Share %"]
     st.dataframe(ff_display, use_container_width=True, hide_index=True)
-with c2:
-    st.bar_chart(ff_df.set_index("fulfillment")["ventas"])
+
+    # Detalle FBF
+    df_fbf = df_items_f[df_items_f["fulfillment"] == "Fulfillment by Falabella"]
+    if not df_fbf.empty:
+        st.markdown("#### 📦 Detalle Fulfillment by Falabella")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**🗂️ Categorías**")
+            cat_fbf = (
+                df_fbf.groupby("categoria")
+                .agg(unidades=("qty", "sum"), ventas=("price", "sum"))
+                .reset_index().sort_values("ventas", ascending=False)
+            )
+            total_cat = cat_fbf["ventas"].sum()
+            cat_fbf["share"] = (cat_fbf["ventas"] / total_cat * 100).round(1) if total_cat > 0 else 0
+            cat_fbf["ventas"] = cat_fbf["ventas"].apply(clp)
+            cat_fbf["share"]  = cat_fbf["share"].apply(lambda x: f"{x:.1f}%")
+            cat_fbf.columns = ["Categoría", "Unidades", "Ventas (CLP)", "Share %"]
+            st.dataframe(cat_fbf, use_container_width=True, hide_index=True)
+
+        with col2:
+            st.markdown("**👟 Líneas**")
+            linea_fbf = (
+                df_fbf.groupby("linea")
+                .agg(unidades=("qty", "sum"), ventas=("price", "sum"))
+                .reset_index().sort_values("ventas", ascending=False)
+            )
+            total_linea = linea_fbf["ventas"].sum()
+            linea_fbf["share"] = (linea_fbf["ventas"] / total_linea * 100).round(1) if total_linea > 0 else 0
+            linea_fbf["ventas"] = linea_fbf["ventas"].apply(clp)
+            linea_fbf["share"]  = linea_fbf["share"].apply(lambda x: f"{x:.1f}%")
+            linea_fbf.columns = ["Línea", "Unidades", "Ventas (CLP)", "Share %"]
+            st.dataframe(linea_fbf, use_container_width=True, hide_index=True)
+
+        st.markdown("**🏆 Top Productos FBF**")
+        top_fbf = (
+            df_fbf.groupby(["sku", "nombre", "marca", "linea", "genero", "categoria"])
+            .agg(unidades=("qty", "sum"), ventas=("price", "sum"))
+            .reset_index().sort_values("ventas", ascending=False).head(20)
+        )
+        top_fbf["Producto"] = top_fbf["sku"] + " — " + top_fbf["nombre"]
+        top_fbf_display = top_fbf[["Producto", "categoria", "marca", "linea", "genero", "unidades", "ventas"]].copy()
+        top_fbf_display.columns = ["Producto", "Categoría", "Marca", "Línea", "Género", "Unidades", "Ventas (CLP)"]
+        top_fbf_display["Ventas (CLP)"] = top_fbf_display["Ventas (CLP)"].apply(clp)
+        st.dataframe(top_fbf_display, use_container_width=True, hide_index=True)
+
 st.divider()
 
 # ── Estado órdenes ───────────────────────────────────────────────────────────
