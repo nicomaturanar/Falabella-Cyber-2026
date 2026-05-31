@@ -346,32 +346,6 @@ if not df_items_f.empty:
     st.dataframe(ff_tabla, use_container_width=True, hide_index=True)
 st.divider()
 
-# ── Desglose por Fulfillment ──────────────────────────────────────────────────
-st.subheader("📊 Performance General")
-if not df_items_f.empty:
-    ff_resumen = (
-        df_items_f.groupby("fulfillment")
-        .agg(ordenes=("order_id", "nunique"), unidades=("qty", "sum"), ventas=("price", "sum"))
-        .reset_index()
-    )
-    total_ventas_res = ff_resumen["ventas"].sum()
-    ff_resumen["share"] = (ff_resumen["ventas"] / total_ventas_res * 100).round(1) if total_ventas_res > 0 else 0
-
-    # Fila total
-    total_row = pd.DataFrame([{
-        "fulfillment": "Total",
-        "ordenes":     ff_resumen["ordenes"].sum(),
-        "unidades":    ff_resumen["unidades"].sum(),
-        "ventas":      ff_resumen["ventas"].sum(),
-        "share":       100.0,
-    }])
-    ff_tabla = pd.concat([ff_resumen, total_row], ignore_index=True)
-    ff_tabla["ventas"] = ff_tabla["ventas"].apply(clp)
-    ff_tabla["share"]  = ff_tabla["share"].apply(lambda x: f"{x:.1f}%")
-    ff_tabla.columns = ["Fulfillment", "Órdenes", "Unidades", "Ventas (CLP)", "Share %"]
-    st.dataframe(ff_tabla, use_container_width=True, hide_index=True)
-
-st.divider()
 
 # ── Hora a hora ──────────────────────────────────────────────────────────────
 st.subheader("📈 Evolución hora a hora")
