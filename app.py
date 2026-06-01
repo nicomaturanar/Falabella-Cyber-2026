@@ -248,7 +248,9 @@ def orders_to_df(orders):
 
 # ── UI ───────────────────────────────────────────────────────────────────────
 st.title("🛒 Falabella Marketplace — Cyber Dashboard")
-st.caption(f"Última actualización: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Gino S.A")
+chile_tz = timezone(timedelta(hours=-4))
+ahora_chile = datetime.now(chile_tz)
+st.caption(f"Última actualización: {ahora_chile.strftime('%d/%m/%Y %H:%M:%S')} | Gino S.A")
 
 with st.sidebar:
     st.header("⚙️ Período")
