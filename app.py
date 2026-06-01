@@ -89,10 +89,15 @@ def clp(valor):
 
 def var_pct(actual, anterior):
     """Calcula variacion porcentual y retorna string formateado."""
-    if anterior == 0:
+    try:
+        if anterior == 0 or pd.isna(anterior) or pd.isna(actual):
+            return None
+        pct = ((actual - anterior) / anterior) * 100
+        if pd.isna(pct):
+            return None
+        return round(pct, 1)
+    except Exception:
         return None
-    pct = ((actual - anterior) / anterior) * 100
-    return round(pct, 1)
 
 def extraer_linea_y_categoria(nombre, sku):
     n = normalizar(nombre)
@@ -327,10 +332,12 @@ with st.sidebar:
         created_after  = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
         created_before = None
     else:
-        from datetime import timezone as tz
         chile_tz = timezone(timedelta(hours=-4))
         hoy_chile = datetime.now(chile_tz)
-        created_after  = hoy_chile.strftime("%Y-%m-%dT00:00:00-04:00")
+        # Medianoche Chile en UTC = 04:00 UTC dia anterior
+        medianoche_chile = hoy_chile.replace(hour=0, minute=0, second=0, microsecond=0)
+        medianoche_utc = medianoche_chile.astimezone(timezone.utc)
+        created_after  = medianoche_utc.strftime("%Y-%m-%dT%H:%M:%S+00:00")
         created_before = None
     auto_refresh = st.checkbox("🔄 Auto-refresh cada 10 min", value=False)
     if st.button("🔃 Actualizar ahora", use_container_width=True):
@@ -564,8 +571,8 @@ def tabla_performance(df, col, titulo, emoji, df_ant=None):
         d = agg[[titulo, "Órdenes", "Unidades", "Var% Unidades", "Ventas (CLP)", "Share %", "Var% Ventas"]].copy()
         d["Ventas (CLP)"] = d["Ventas (CLP)"].apply(clp)
         d["Share %"]      = d["Share %"].apply(lambda x: f"{x:.1f}%")
-        d["Var% Ventas"]  = d["Var% Ventas"].apply(lambda x: f"{x:+.1f}%" if x is not None else "N/A")
-        d["Var% Unidades"]= d["Var% Unidades"].apply(lambda x: f"{x:+.1f}%" if x is not None else "N/A")
+        d["Var% Ventas"]  = d["Var% Ventas"].apply(lambda x: f"{x:+.1f}%" if (x is not None and not pd.isna(x)) else "N/A")
+        d["Var% Unidades"]= d["Var% Unidades"].apply(lambda x: f"{x:+.1f}%" if (x is not None and not pd.isna(x)) else "N/A")
     else:
         agg.columns = [titulo, "Órdenes", "Unidades", "Ventas (CLP)", "Share %"]
         d = agg.copy()
