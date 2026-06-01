@@ -338,6 +338,7 @@ df_items = get_all_items(orders_raw)
 # ── Datos año anterior (mismo día ISO) ───────────────────────────────────────
 ca_anterior, cb_anterior, fecha_equiv = get_comparativo_anio_anterior(created_after, created_before)
 with st.spinner(f"Cargando comparativo año anterior ({fecha_equiv})..."):
+    st.caption(f"🔧 Debug año anterior: desde {ca_anterior} hasta {cb_anterior}")
     orders_raw_anterior = get_orders(ca_anterior, cb_anterior)
 df_orders_anterior = orders_to_df(orders_raw_anterior)
 df_items_anterior  = get_all_items(orders_raw_anterior) if orders_raw_anterior else pd.DataFrame()
