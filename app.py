@@ -262,7 +262,10 @@ with st.sidebar:
         created_after  = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
         created_before = None
     else:
-        created_after  = datetime.now().strftime("%Y-%m-%dT00:00:00-04:00")
+        from datetime import timezone as tz
+        chile_tz = timezone(timedelta(hours=-4))
+        hoy_chile = datetime.now(chile_tz)
+        created_after  = hoy_chile.strftime("%Y-%m-%dT00:00:00-04:00")
         created_before = None
     auto_refresh = st.checkbox("🔄 Auto-refresh cada 10 min", value=False)
     if st.button("🔃 Actualizar ahora", use_container_width=True):
