@@ -294,8 +294,8 @@ def get_comparativo_anio_anterior(created_after_actual, created_before_actual):
             # Rango ya terminó -> tomar completo
             hora_fin = "23:59:59"
 
-    ca_ant = f"{fecha_inicio_ant}T{hora_inicio}-04:00"
-    cb_ant = f"{fecha_fin_ant}T{hora_fin}-04:00"
+    ca_ant = f"{fecha_inicio_ant}T00:00:00"
+    cb_ant = f"{fecha_fin_ant}T{hora_fin}"
 
     return ca_ant, cb_ant, fecha_inicio_ant
 
@@ -335,10 +335,7 @@ with st.sidebar:
     else:
         chile_tz = timezone(timedelta(hours=-4))
         hoy_chile = datetime.now(chile_tz)
-        # Medianoche Chile en UTC = 04:00 UTC dia anterior
-        medianoche_chile = hoy_chile.replace(hour=0, minute=0, second=0, microsecond=0)
-        medianoche_utc = medianoche_chile.astimezone(timezone.utc)
-        created_after  = medianoche_utc.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+        created_after  = hoy_chile.strftime("%Y-%m-%dT00:00:00")
         created_before = None
     auto_refresh = st.checkbox("🔄 Auto-refresh cada 10 min", value=False)
     if st.button("🔃 Actualizar ahora", use_container_width=True):
