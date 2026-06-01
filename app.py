@@ -310,6 +310,7 @@ def orders_to_df(orders):
             "created_at":  pd.to_datetime(o.get("CreatedAt")),
             "price":       float(o.get("Price", 0) or 0),
             "items_count": int(o.get("ItemsCount", 0) or 0),
+            "operator":    o.get("OperatorCode", "") or "",
         })
     df = pd.DataFrame(rows)
     df["hour"] = df["created_at"].dt.floor("h")
@@ -347,6 +348,9 @@ with st.spinner("Consultando órdenes en Falabella..."):
     orders_raw = get_orders(created_after, created_before)
 
 df_orders = orders_to_df(orders_raw)
+if not df_orders.empty:
+    operadores = df_orders["operator"].unique().tolist()
+    st.info(f"🔧 Debug OperatorCode valores: {operadores}")
 if df_orders.empty:
     st.warning("No se encontraron órdenes en el período seleccionado.")
     st.stop()
