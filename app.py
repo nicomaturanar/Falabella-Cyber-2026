@@ -262,7 +262,7 @@ with st.sidebar:
         created_after  = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
         created_before = None
     else:
-        created_after  = datetime.now().strftime("%Y-%m-%dT00:00:00+00:00")
+        created_after  = datetime.now().strftime("%Y-%m-%dT00:00:00-04:00")
         created_before = None
     auto_refresh = st.checkbox("🔄 Auto-refresh cada 10 min", value=False)
     if st.button("🔃 Actualizar ahora", use_container_width=True):
