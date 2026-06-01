@@ -264,13 +264,17 @@ def get_comparativo_anio_anterior(created_after_actual, created_before_actual):
     # Hora de corte: solo si el rango incluye hoy
     hora_inicio = created_after_actual[11:19] if len(created_after_actual) > 10 else "00:00:00"
 
-    fecha_fin_real = dt_module.date.fromisoformat((created_before_actual or created_after_actual)[:10])
-    if fecha_fin_real >= hoy_date:
-        # Rango incluye hoy -> cortar a hora actual
+    # Si created_before es None significa que el rango llega hasta ahora (Hoy o Últimas 24h)
+    if created_before_actual is None:
         hora_fin = hoy.strftime("%H:%M:%S")
     else:
-        # Rango ya terminó -> tomar completo
-        hora_fin = "23:59:59"
+        fecha_fin_real = dt_module.date.fromisoformat(created_before_actual[:10])
+        if fecha_fin_real >= hoy_date:
+            # Rango incluye hoy -> cortar a hora actual
+            hora_fin = hoy.strftime("%H:%M:%S")
+        else:
+            # Rango ya terminó -> tomar completo
+            hora_fin = "23:59:59"
 
     ca_ant = f"{fecha_inicio_ant}T{hora_inicio}-04:00"
     cb_ant = f"{fecha_fin_ant}T{hora_fin}-04:00"
