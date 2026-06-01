@@ -172,12 +172,7 @@ def call_api(action, extra_params={}):
         return None
 
 def get_orders(created_after, created_before=None):
-    params = {
-        "CreatedAfter": created_after,
-        "Limit": 100,
-        "Offset": 0,
-        "Status": "pending,canceled,ready_to_ship,delivered,returned,shipped,failed,processing"
-    }
+    params = {"CreatedAfter": created_after, "Limit": 100, "Offset": 0}
     if created_before:
         params["CreatedBefore"] = created_before
     all_orders = []
@@ -350,6 +345,7 @@ with st.sidebar:
         st.rerun()
 
 with st.spinner("Consultando órdenes en Falabella..."):
+    st.caption(f"🔧 Debug: desde {created_after} hasta {created_before}")
     orders_raw = get_orders(created_after, created_before)
 
 df_orders = orders_to_df(orders_raw)
