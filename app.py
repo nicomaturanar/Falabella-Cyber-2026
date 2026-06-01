@@ -87,6 +87,13 @@ def clp(valor):
     """Formatea un numero al estilo chileno con puntos como separador de miles."""
     return "$" + f"{int(valor):,}".replace(",", ".")
 
+def var_pct(actual, anterior):
+    """Calcula variacion porcentual y retorna string formateado."""
+    if anterior == 0:
+        return None
+    pct = ((actual - anterior) / anterior) * 100
+    return round(pct, 1)
+
 def extraer_linea_y_categoria(nombre, sku):
     n = normalizar(nombre)
     s = normalizar(sku)
@@ -230,6 +237,21 @@ def get_all_items(orders):
 
     return pd.DataFrame(all_items) if all_items else pd.DataFrame()
 
+def get_mismo_dia_anio_anterior():
+    """Retorna el mismo dia de la semana ISO del anio anterior en timezone Chile."""
+    chile_tz = timezone(timedelta(hours=-4))
+    hoy = datetime.now(chile_tz)
+    # Mismo numero de semana ISO y mismo dia de semana, anio anterior
+    anio_anterior = hoy.year - 1
+    semana_iso = hoy.isocalendar()[1]
+    dia_semana  = hoy.isocalendar()[2]
+    # Calcular fecha equivalente
+    import datetime as dt_module
+    fecha_equiv = dt_module.date.fromisocalendar(anio_anterior, semana_iso, dia_semana)
+    created_after  = f"{fecha_equiv}T00:00:00-04:00"
+    created_before = f"{fecha_equiv}T23:59:59-04:00"
+    return created_after, created_before, fecha_equiv
+
 def orders_to_df(orders):
     if not orders:
         return pd.DataFrame()
@@ -284,6 +306,13 @@ if df_orders.empty:
 
 df_items = get_all_items(orders_raw)
 
+# ── Datos año anterior (mismo día ISO) ───────────────────────────────────────
+ca_anterior, cb_anterior, fecha_equiv = get_mismo_dia_anio_anterior()
+with st.spinner(f"Cargando comparativo año anterior ({fecha_equiv})..."):
+    orders_raw_anterior = get_orders(ca_anterior, cb_anterior)
+df_orders_anterior = orders_to_df(orders_raw_anterior)
+df_items_anterior  = get_all_items(orders_raw_anterior) if orders_raw_anterior else pd.DataFrame()
+
 # ── Filtros ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.divider()
@@ -325,9 +354,17 @@ total_ordenes = len(df_orders_f)
 gmv_total     = df_orders_f["price"].sum()
 total_items   = df_orders_f["items_count"].sum()
 ticket_prom   = gmv_total / total_ordenes if total_ordenes else 0
-col1.metric("🛍️ Órdenes totales",  f"{total_ordenes:,}")
-col2.metric("💰 Ventas (CLP)",      clp(gmv_total))
-col3.metric("📦 Unidades vendidas", f"{total_items:,}")
+# Calcular métricas año anterior
+total_ordenes_ant = len(df_orders_anterior) if not df_orders_anterior.empty else 0
+gmv_ant           = df_orders_anterior["price"].sum() if not df_orders_anterior.empty else 0
+total_items_ant   = df_orders_anterior["items_count"].sum() if not df_orders_anterior.empty else 0
+
+col1.metric("🛍️ Órdenes totales",  f"{total_ordenes:,}",
+    delta=f"{var_pct(total_ordenes, total_ordenes_ant)}% vs {fecha_equiv.strftime('%d/%m/%Y')}" if total_ordenes_ant else None)
+col2.metric("💰 Ventas (CLP)",      clp(gmv_total),
+    delta=f"{var_pct(gmv_total, gmv_ant)}% vs {fecha_equiv.strftime('%d/%m/%Y')}" if gmv_ant else None)
+col3.metric("📦 Unidades vendidas", f"{total_items:,}",
+    delta=f"{var_pct(total_items, total_items_ant)}% vs {fecha_equiv.strftime('%d/%m/%Y')}" if total_items_ant else None)
 col4.metric("🎯 Ticket promedio",   clp(ticket_prom))
 
 # ── Desglose por Fulfillment ──────────────────────────────────────────────────
@@ -394,7 +431,7 @@ st.dataframe(ht[["Hora", "Órdenes", "Órd. Acum.", "Unidades", "GMV", "GMV Acum
 st.divider()
 
 # ── Tabla de performance genérica ────────────────────────────────────────────
-def tabla_performance(df, col, titulo, emoji):
+def tabla_performance(df, col, titulo, emoji, df_ant=None):
     st.subheader(f"{emoji} Performance por {titulo}")
     agg = (
         df.groupby(col)
@@ -403,22 +440,43 @@ def tabla_performance(df, col, titulo, emoji):
     )
     total_ventas = agg["ventas"].sum()
     agg["share"] = (agg["ventas"] / total_ventas * 100).round(1) if total_ventas > 0 else 0
-    agg.columns = [titulo, "Órdenes", "Unidades", "Ventas (CLP)", "Share %"]
+
+    # Año anterior
+    if df_ant is not None and not df_ant.empty and col in df_ant.columns:
+        agg_ant = (
+            df_ant.groupby(col)
+            .agg(unidades_ant=("qty", "sum"), ventas_ant=("price", "sum"))
+            .reset_index()
+        )
+        agg = agg.merge(agg_ant, on=col, how="left").fillna(0)
+        agg["Var% Ventas"]    = agg.apply(lambda r: var_pct(r["ventas"], r["ventas_ant"]), axis=1)
+        agg["Var% Unidades"]  = agg.apply(lambda r: var_pct(r["unidades"], r["unidades_ant"]), axis=1)
+        cols_show = [col, "Órdenes", "Unidades", "Var% Unidades", "ventas", "share", "Var% Ventas"]
+        agg.columns = [titulo, "Órdenes", "Unidades", "Ventas (CLP)", "Share %", "unidades_ant", "ventas_ant", "Var% Ventas", "Var% Unidades"]
+        d = agg[[titulo, "Órdenes", "Unidades", "Var% Unidades", "Ventas (CLP)", "Share %", "Var% Ventas"]].copy()
+        d["Ventas (CLP)"] = d["Ventas (CLP)"].apply(clp)
+        d["Share %"]      = d["Share %"].apply(lambda x: f"{x:.1f}%")
+        d["Var% Ventas"]  = d["Var% Ventas"].apply(lambda x: f"{x:+.1f}%" if x is not None else "N/A")
+        d["Var% Unidades"]= d["Var% Unidades"].apply(lambda x: f"{x:+.1f}%" if x is not None else "N/A")
+    else:
+        agg.columns = [titulo, "Órdenes", "Unidades", "Ventas (CLP)", "Share %"]
+        d = agg.copy()
+        d["Ventas (CLP)"] = d["Ventas (CLP)"].apply(clp)
+        d["Share %"]      = d["Share %"].apply(lambda x: f"{x:.1f}%")
+
     c1, c2 = st.columns([1, 2])
     with c1:
-        d = agg.copy()
-        d["Ventas (CLP)"] = d["Ventas (CLP)"].apply(lambda x: clp(x))
-        d["Share %"] = d["Share %"].apply(lambda x: f"{x:.1f}%")
         st.dataframe(d, use_container_width=True, hide_index=True)
     with c2:
+        chart_col = "Ventas (CLP)" if "Ventas (CLP)" in agg.columns else agg.columns[4]
         st.bar_chart(agg.set_index(titulo)["Ventas (CLP)"].sort_values(ascending=False).head(10))
     st.divider()
 
 if not df_items_f.empty:
-    tabla_performance(df_items_f, "categoria", "Categoría", "🗂️")
-    tabla_performance(df_items_f, "linea",     "Línea",     "👟")
-    tabla_performance(df_items_f, "marca",     "Marca",     "🏷️")
-    tabla_performance(df_items_f, "genero",    "Género",    "👤")
+    tabla_performance(df_items_f, "categoria", "Categoría", "🗂️", df_items_anterior)
+    tabla_performance(df_items_f, "linea",     "Línea",     "👟", df_items_anterior)
+    tabla_performance(df_items_f, "marca",     "Marca",     "🏷️", df_items_anterior)
+    tabla_performance(df_items_f, "genero",    "Género",    "👤", df_items_anterior)
 
     # ── Top Productos ────────────────────────────────────────────────────────
     st.subheader("🏆 Top Productos")
