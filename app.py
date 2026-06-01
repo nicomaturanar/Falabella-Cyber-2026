@@ -310,7 +310,8 @@ def orders_to_df(orders):
             "created_at":  pd.to_datetime(o.get("CreatedAt")),
             "price":       float(o.get("Price", 0) or 0),
             "items_count": int(o.get("ItemsCount", 0) or 0),
-            "operator":    o.get("OperatorCode", "") or "",
+            "operator_raw": o.get("OperatorCode", "") or "",
+            "operador":    "Sodimac" if (o.get("OperatorCode", "") or "").lower() in ["sodicl", "sodimac", "sodi"] else "Falabella",
         })
     df = pd.DataFrame(rows)
     df["hour"] = df["created_at"].dt.floor("h")
@@ -344,13 +345,9 @@ with st.sidebar:
         st.rerun()
 
 with st.spinner("Consultando órdenes en Falabella..."):
-    st.caption(f"🔧 Debug: desde {created_after} hasta {created_before}")
     orders_raw = get_orders(created_after, created_before)
 
 df_orders = orders_to_df(orders_raw)
-if not df_orders.empty:
-    operadores = df_orders["operator"].unique().tolist()
-    st.info(f"🔧 Debug OperatorCode valores: {operadores}")
 if df_orders.empty:
     st.warning("No se encontraron órdenes en el período seleccionado.")
     st.stop()
@@ -435,7 +432,11 @@ else:
 with st.sidebar:
     st.divider()
     st.header("🔍 Filtros")
-    filtro_cats = filtro_marcas = filtro_lineas = filtro_generos = filtro_fulfillment = []
+    filtro_cats = filtro_marcas = filtro_lineas = filtro_generos = filtro_fulfillment = filtro_operador = []
+    if not df_orders.empty:
+        filtro_operador = st.multiselect("🏪 Operador", sorted(df_orders["operador"].dropna().unique()))
+    else:
+        filtro_operador = []
     if not df_items.empty:
         filtro_fulfillment = st.multiselect("🚚 Fulfillment", sorted(df_items["fulfillment"].dropna().unique()))
         filtro_cats    = st.multiselect("🗂️ Categoría", sorted(df_items["categoria"].dropna().unique()))
@@ -443,14 +444,22 @@ with st.sidebar:
         filtro_lineas  = st.multiselect("👟 Línea",     sorted(df_items["linea"].dropna().unique()))
         filtro_generos = st.multiselect("👤 Género",    sorted(df_items["genero"].dropna().unique()))
 
+# Aplicar filtro operador a ordenes
+if filtro_operador:
+    df_orders_op = df_orders[df_orders["operador"].isin(filtro_operador)]
+else:
+    df_orders_op = df_orders
+
 df_items_f = df_items.copy()
+if filtro_operador:
+    df_items_f = df_items_f[df_items_f["order_id"].isin(df_orders_op["order_id"])]
 if filtro_fulfillment: df_items_f = df_items_f[df_items_f["fulfillment"].isin(filtro_fulfillment)]
 if filtro_cats:        df_items_f = df_items_f[df_items_f["categoria"].isin(filtro_cats)]
 if filtro_marcas:      df_items_f = df_items_f[df_items_f["marca"].isin(filtro_marcas)]
 if filtro_lineas:      df_items_f = df_items_f[df_items_f["linea"].isin(filtro_lineas)]
 if filtro_generos:     df_items_f = df_items_f[df_items_f["genero"].isin(filtro_generos)]
 
-hay_filtros = any([filtro_cats, filtro_marcas, filtro_lineas, filtro_generos, filtro_fulfillment])
+hay_filtros = any([filtro_operador, filtro_cats, filtro_marcas, filtro_lineas, filtro_generos, filtro_fulfillment])
 if hay_filtros and not df_items_f.empty:
     df_orders_f = df_orders[df_orders["order_id"].isin(df_items_f["order_id"].unique())]
 else:
@@ -458,6 +467,7 @@ else:
 
 if hay_filtros:
     partes = []
+    if filtro_operador:   partes.append(f"Operador: **{', '.join(filtro_operador)}**")
     if filtro_fulfillment: partes.append(f"Fulfillment: **{', '.join(filtro_fulfillment)}**")
     if filtro_cats:        partes.append(f"Categoría: **{', '.join(filtro_cats)}**")
     if filtro_marcas:      partes.append(f"Marca: **{', '.join(filtro_marcas)}**")
