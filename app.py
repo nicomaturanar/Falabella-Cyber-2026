@@ -181,18 +181,16 @@ def get_orders(created_after, created_before=None):
         if not data or not isinstance(data, dict):
             break
         try:
-            body  = data.get("SuccessResponse", {}).get("Body", {})
-            total = int(body.get("CountTotal", 0) or 0)
-            orders = body.get("Orders", {}).get("Order", [])
-        except (AttributeError, TypeError):
+            orders = data.get("SuccessResponse", {}).get("Body", {}).get("Orders", {}).get("Order", [])
+        except AttributeError:
             break
         if not orders:
             break
         if isinstance(orders, dict):
             orders = [orders]
         all_orders.extend(orders)
-        # Parar solo si ya trajimos todo
-        if len(all_orders) >= total or len(orders) == 0:
+        # Solo parar si no vino nada en esta pagina
+        if len(orders) == 0:
             break
         params["Offset"] += 100
     return all_orders
