@@ -351,9 +351,15 @@ df_items = get_all_items(orders_raw)
 ca_anterior, cb_anterior, fecha_equiv = get_comparativo_anio_anterior(created_after, created_before)
 with st.spinner(f"Cargando comparativo año anterior ({fecha_equiv})..."):
     orders_raw_anterior = get_orders(ca_anterior, cb_anterior)
+    # Filtrar manualmente por rango exacto
     if orders_raw_anterior:
-        with st.expander("🔧 Debug: primera orden año anterior"):
-            st.json(orders_raw_anterior[0])
+        from dateutil import parser as dateparser
+        ca_dt = dateparser.parse(ca_anterior)
+        cb_dt = dateparser.parse(cb_anterior)
+        orders_raw_anterior = [
+            o for o in orders_raw_anterior
+            if o.get("CreatedAt") and ca_dt <= dateparser.parse(o["CreatedAt"]).replace(tzinfo=ca_dt.tzinfo) <= cb_dt
+        ]
 df_orders_anterior = orders_to_df(orders_raw_anterior)
 # Para año anterior solo usamos nivel orden (GetOrderItems falla con ordenes antiguas)
 # Para año anterior: usar GetOrderItems pero con timeout mayor y cache
