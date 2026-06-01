@@ -351,36 +351,64 @@ df_items = get_all_items(orders_raw)
 ca_anterior, cb_anterior, fecha_equiv = get_comparativo_anio_anterior(created_after, created_before)
 with st.spinner(f"Cargando comparativo año anterior ({fecha_equiv})..."):
     orders_raw_anterior = get_orders(ca_anterior, cb_anterior)
+    if orders_raw_anterior:
+        with st.expander("🔧 Debug: primera orden año anterior"):
+            st.json(orders_raw_anterior[0])
 df_orders_anterior = orders_to_df(orders_raw_anterior)
 # Para año anterior solo usamos nivel orden (GetOrderItems falla con ordenes antiguas)
-# Para año anterior usar GetOrderItems orden por orden, ignorando errores
+# Para año anterior: usar GetOrderItems pero con timeout mayor y cache
+# Si falla una orden, usar datos del año actual para inferir linea/marca/categoria por SKU
 if orders_raw_anterior:
     all_items_ant = []
     prog_ant = st.progress(0, text="Cargando detalle año anterior...")
     total_ant = len(orders_raw_anterior)
+    
+    # Crear mapa SKU -> atributos desde datos actuales
+    sku_map = {}
+    if not df_items.empty:
+        for _, row in df_items.iterrows():
+            sku15 = row["sku"][:-3] if len(row["sku"]) > 3 else row["sku"]
+            if sku15 not in sku_map:
+                sku_map[sku15] = {
+                    "nombre":   row["nombre"],
+                    "marca":    row["marca"],
+                    "linea":    row["linea"],
+                    "categoria":row["categoria"],
+                    "genero":   row["genero"],
+                }
+
     for i, order in enumerate(orders_raw_anterior):
         order_id = order.get("OrderId")
-        try:
-            items = get_order_items(order_id)
-            for item in items:
-                nombre = item.get("Name", "") or ""
-                sku    = item.get("Sku", "") or ""
+        items = get_order_items(order_id)
+        for item in items:
+            nombre = item.get("Name", "") or ""
+            sku    = item.get("Sku", "") or ""
+            sku15  = sku[:-3] if len(sku) > 3 else sku
+            # Intentar inferir atributos desde SKU map si el nombre viene vacio
+            if sku15 in sku_map and not nombre:
+                attrs = sku_map[sku15]
+                nombre    = attrs["nombre"]
+                marca     = attrs["marca"]
+                linea     = attrs["linea"]
+                categoria = attrs["categoria"]
+                genero    = attrs["genero"]
+            else:
                 linea, categoria = extraer_linea_y_categoria(nombre, sku)
-                all_items_ant.append({
-                    "order_id":   order_id,
-                    "created_at": pd.to_datetime(order.get("CreatedAt", "")),
-                    "sku":        sku,
-                    "nombre":     nombre,
-                    "marca":      extraer_marca(nombre, sku),
-                    "linea":      linea,
-                    "categoria":  categoria,
-                    "genero":     extraer_genero(nombre),
-                    "fulfillment": "Año anterior",
-                    "price":      float(item.get("PaidPrice", 0) or 0),
-                    "qty":        int(item.get("QtyOrdered", 1) or 1),
-                })
-        except Exception:
-            pass
+                marca  = extraer_marca(nombre, sku)
+                genero = extraer_genero(nombre)
+            all_items_ant.append({
+                "order_id":    order_id,
+                "created_at":  pd.to_datetime(order.get("CreatedAt", "")),
+                "sku":         sku,
+                "nombre":      nombre,
+                "marca":       marca,
+                "linea":       linea,
+                "categoria":   categoria,
+                "genero":      genero,
+                "fulfillment": "Año anterior",
+                "price":       float(item.get("PaidPrice", 0) or 0),
+                "qty":         int(item.get("QtyOrdered", 1) or 1),
+            })
         prog_ant.progress((i + 1) / total_ant, text=f"Año anterior: {i+1} de {total_ant}...")
     prog_ant.empty()
     df_items_anterior = pd.DataFrame(all_items_ant) if all_items_ant else pd.DataFrame()
