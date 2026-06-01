@@ -422,14 +422,15 @@ if not df_items_f.empty:
 
     # ── Top Productos ────────────────────────────────────────────────────────
     st.subheader("🏆 Top Productos")
+    df_items_sku15 = df_items_f.copy()
+    df_items_sku15["sku15"] = df_items_sku15["sku"].str[:-3]
     prod_df = (
-        df_items_f.groupby(["sku", "nombre", "marca", "linea", "genero", "categoria"])
-        .agg(unidades=("qty", "sum"), gmv=("price", "sum"))
+        df_items_sku15.groupby(["sku15", "marca", "linea", "genero", "categoria"])
+        .agg(nombre=("nombre", "first"), unidades=("qty", "sum"), gmv=("price", "sum"))
         .reset_index().sort_values("gmv", ascending=False).head(50)
     )
-    prod_df["Producto"] = prod_df["sku"] + " — " + prod_df["nombre"]
-    pd_display = prod_df[["Producto", "categoria", "marca", "linea", "genero", "unidades", "gmv"]].copy()
-    pd_display.columns = ["Producto", "Categoría", "Marca", "Línea", "Género", "Unidades", "Ventas (CLP)"]
+    pd_display = prod_df[["sku15", "nombre", "categoria", "marca", "linea", "genero", "unidades", "gmv"]].copy()
+    pd_display.columns = ["SKU 15", "Nombre", "Categoría", "Marca", "Línea", "Género", "Unidades", "Ventas (CLP)"]
     pd_display["Ventas (CLP)"] = pd_display["Ventas (CLP)"].apply(clp)
     st.dataframe(pd_display, use_container_width=True, hide_index=True)
     st.divider()
@@ -485,14 +486,15 @@ if not df_items_f.empty:
             st.dataframe(linea_fbf, use_container_width=True, hide_index=True)
 
         st.markdown("**🏆 Top Productos FBF**")
+        df_fbf_sku15 = df_fbf.copy()
+        df_fbf_sku15["sku15"] = df_fbf_sku15["sku"].str[:-3]
         top_fbf = (
-            df_fbf.groupby(["sku", "nombre", "marca", "linea", "genero", "categoria"])
-            .agg(unidades=("qty", "sum"), ventas=("price", "sum"))
+            df_fbf_sku15.groupby(["sku15", "marca", "linea", "genero", "categoria"])
+            .agg(nombre=("nombre", "first"), unidades=("qty", "sum"), ventas=("price", "sum"))
             .reset_index().sort_values("ventas", ascending=False).head(20)
         )
-        top_fbf["Producto"] = top_fbf["sku"] + " — " + top_fbf["nombre"]
-        top_fbf_display = top_fbf[["Producto", "categoria", "marca", "linea", "genero", "unidades", "ventas"]].copy()
-        top_fbf_display.columns = ["Producto", "Categoría", "Marca", "Línea", "Género", "Unidades", "Ventas (CLP)"]
+        top_fbf_display = top_fbf[["sku15", "nombre", "categoria", "marca", "linea", "genero", "unidades", "ventas"]].copy()
+        top_fbf_display.columns = ["SKU 15", "Nombre", "Categoría", "Marca", "Línea", "Género", "Unidades", "Ventas (CLP)"]
         top_fbf_display["Ventas (CLP)"] = top_fbf_display["Ventas (CLP)"].apply(clp)
         st.dataframe(top_fbf_display, use_container_width=True, hide_index=True)
 
