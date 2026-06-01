@@ -166,13 +166,16 @@ def get_orders(created_after, created_before=None):
     all_orders = []
     while True:
         data = call_api("GetOrders", params)
-        if not data:
+        if not data or not isinstance(data, dict):
             break
-        orders = data.get("SuccessResponse", {}).get("Body", {}).get("Orders", {}).get("Order", [])
-        if isinstance(orders, dict):
-            orders = [orders]
+        try:
+            orders = data.get("SuccessResponse", {}).get("Body", {}).get("Orders", {}).get("Order", [])
+        except AttributeError:
+            break
         if not orders:
             break
+        if isinstance(orders, dict):
+            orders = [orders]
         all_orders.extend(orders)
         if len(orders) < 100:
             break
