@@ -237,20 +237,45 @@ def get_all_items(orders):
 
     return pd.DataFrame(all_items) if all_items else pd.DataFrame()
 
-def get_mismo_dia_anio_anterior():
-    """Retorna el mismo dia de la semana ISO del anio anterior en timezone Chile."""
+def get_comparativo_anio_anterior(created_after_actual, created_before_actual):
+    """Retorna el mismo rango del anio anterior con mismo dia ISO.
+    Si el rango incluye hoy, corta a la hora actual. Si no, toma el rango completo."""
+    import datetime as dt_module
     chile_tz = timezone(timedelta(hours=-4))
     hoy = datetime.now(chile_tz)
-    # Mismo numero de semana ISO y mismo dia de semana, anio anterior
-    anio_anterior = hoy.year - 1
-    semana_iso = hoy.isocalendar()[1]
-    dia_semana  = hoy.isocalendar()[2]
-    # Calcular fecha equivalente
-    import datetime as dt_module
-    fecha_equiv = dt_module.date.fromisocalendar(anio_anterior, semana_iso, dia_semana)
-    created_after  = f"{fecha_equiv}T00:00:00-04:00"
-    created_before = f"{fecha_equiv}T23:59:59-04:00"
-    return created_after, created_before, fecha_equiv
+    hoy_date = hoy.date()
+
+    # Calcular offset de dias entre fechas actuales y equivalentes del anio anterior
+    # Usar el mismo dia ISO (semana + dia semana) para el inicio del rango
+    fecha_inicio_actual = dt_module.date.fromisoformat(created_after_actual[:10])
+    iso_year_ant = fecha_inicio_actual.year - 1
+    iso_week     = fecha_inicio_actual.isocalendar()[1]
+    iso_day      = fecha_inicio_actual.isocalendar()[2]
+    fecha_inicio_ant = dt_module.date.fromisocalendar(iso_year_ant, iso_week, iso_day)
+
+    # Calcular offset para el fin del rango
+    if created_before_actual:
+        fecha_fin_actual = dt_module.date.fromisoformat(created_before_actual[:10])
+        offset = fecha_fin_actual - fecha_inicio_actual
+        fecha_fin_ant = fecha_inicio_ant + offset
+    else:
+        fecha_fin_ant = fecha_inicio_ant
+
+    # Hora de corte: solo si el rango incluye hoy
+    hora_inicio = created_after_actual[11:19] if len(created_after_actual) > 10 else "00:00:00"
+
+    fecha_fin_real = dt_module.date.fromisoformat((created_before_actual or created_after_actual)[:10])
+    if fecha_fin_real >= hoy_date:
+        # Rango incluye hoy -> cortar a hora actual
+        hora_fin = hoy.strftime("%H:%M:%S")
+    else:
+        # Rango ya terminó -> tomar completo
+        hora_fin = "23:59:59"
+
+    ca_ant = f"{fecha_inicio_ant}T{hora_inicio}-04:00"
+    cb_ant = f"{fecha_fin_ant}T{hora_fin}-04:00"
+
+    return ca_ant, cb_ant, fecha_inicio_ant
 
 def orders_to_df(orders):
     if not orders:
@@ -307,7 +332,7 @@ if df_orders.empty:
 df_items = get_all_items(orders_raw)
 
 # ── Datos año anterior (mismo día ISO) ───────────────────────────────────────
-ca_anterior, cb_anterior, fecha_equiv = get_mismo_dia_anio_anterior()
+ca_anterior, cb_anterior, fecha_equiv = get_comparativo_anio_anterior(created_after, created_before)
 with st.spinner(f"Cargando comparativo año anterior ({fecha_equiv})..."):
     orders_raw_anterior = get_orders(ca_anterior, cb_anterior)
 df_orders_anterior = orders_to_df(orders_raw_anterior)
