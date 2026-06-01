@@ -199,6 +199,18 @@ def get_order_items(order_id):
         items = [items]
     return items or []
 
+@st.cache_data(ttl=600)
+def get_multiple_order_items(order_ids_tuple):
+    """Obtiene items de multiples ordenes en una sola llamada."""
+    order_ids_str = ",".join(str(oid) for oid in order_ids_tuple)
+    data = call_api("GetMultipleOrderItems", {"OrderIdList": order_ids_str})
+    if not data:
+        return []
+    items = data.get("SuccessResponse", {}).get("Body", {}).get("OrderItems", {}).get("OrderItem", [])
+    if isinstance(items, dict):
+        items = [items]
+    return items or []
+
 def get_all_items(orders):
     all_items = []
     progress = st.progress(0, text="Cargando detalle de órdenes...")
@@ -338,10 +350,43 @@ df_items = get_all_items(orders_raw)
 # ── Datos año anterior (mismo día ISO) ───────────────────────────────────────
 ca_anterior, cb_anterior, fecha_equiv = get_comparativo_anio_anterior(created_after, created_before)
 with st.spinner(f"Cargando comparativo año anterior ({fecha_equiv})..."):
-    st.caption(f"🔧 Debug año anterior: desde {ca_anterior} hasta {cb_anterior}")
     orders_raw_anterior = get_orders(ca_anterior, cb_anterior)
 df_orders_anterior = orders_to_df(orders_raw_anterior)
-df_items_anterior  = get_all_items(orders_raw_anterior) if orders_raw_anterior else pd.DataFrame()
+# Para año anterior solo usamos nivel orden (GetOrderItems falla con ordenes antiguas)
+# Para año anterior usar GetMultipleOrderItems en batches de 10
+if orders_raw_anterior:
+    all_items_ant = []
+    order_ids_ant = [o.get("OrderId") for o in orders_raw_anterior]
+    batch_size = 10
+    prog_ant = st.progress(0, text="Cargando detalle año anterior...")
+    for i in range(0, len(order_ids_ant), batch_size):
+        batch = tuple(order_ids_ant[i:i+batch_size])
+        try:
+            items_batch = get_multiple_order_items(batch)
+            for item in items_batch:
+                order = next((o for o in orders_raw_anterior if str(o.get("OrderId")) == str(item.get("OrderId", ""))), {})
+                nombre = item.get("Name", "") or ""
+                sku    = item.get("Sku", "") or ""
+                linea, categoria = extraer_linea_y_categoria(nombre, sku)
+                all_items_ant.append({
+                    "order_id":   item.get("OrderId"),
+                    "created_at": pd.to_datetime(order.get("CreatedAt", "")),
+                    "sku":        sku,
+                    "nombre":     nombre,
+                    "marca":      extraer_marca(nombre, sku),
+                    "linea":      linea,
+                    "categoria":  categoria,
+                    "genero":     extraer_genero(nombre),
+                    "price":      float(item.get("PaidPrice", 0) or 0),
+                    "qty":        int(item.get("QtyOrdered", 1) or 1),
+                })
+        except Exception:
+            pass
+        prog_ant.progress(min((i + batch_size) / len(order_ids_ant), 1.0), text=f"Año anterior: {min(i+batch_size, len(order_ids_ant))} de {len(order_ids_ant)}...")
+    prog_ant.empty()
+    df_items_anterior = pd.DataFrame(all_items_ant) if all_items_ant else pd.DataFrame()
+else:
+    df_items_anterior = pd.DataFrame()
 
 # ── Filtros ──────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -384,7 +429,7 @@ total_ordenes = len(df_orders_f)
 gmv_total     = df_orders_f["price"].sum()
 total_items   = df_orders_f["items_count"].sum()
 ticket_prom   = gmv_total / total_ordenes if total_ordenes else 0
-# Calcular métricas año anterior
+# Calcular métricas año anterior (solo nivel orden)
 total_ordenes_ant = len(df_orders_anterior) if not df_orders_anterior.empty else 0
 gmv_ant           = df_orders_anterior["price"].sum() if not df_orders_anterior.empty else 0
 total_items_ant   = df_orders_anterior["items_count"].sum() if not df_orders_anterior.empty else 0
