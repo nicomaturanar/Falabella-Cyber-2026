@@ -353,23 +353,21 @@ with st.spinner(f"Cargando comparativo año anterior ({fecha_equiv})..."):
     orders_raw_anterior = get_orders(ca_anterior, cb_anterior)
 df_orders_anterior = orders_to_df(orders_raw_anterior)
 # Para año anterior solo usamos nivel orden (GetOrderItems falla con ordenes antiguas)
-# Para año anterior usar GetMultipleOrderItems en batches de 10
+# Para año anterior usar GetOrderItems orden por orden, ignorando errores
 if orders_raw_anterior:
     all_items_ant = []
-    order_ids_ant = [o.get("OrderId") for o in orders_raw_anterior]
-    batch_size = 10
     prog_ant = st.progress(0, text="Cargando detalle año anterior...")
-    for i in range(0, len(order_ids_ant), batch_size):
-        batch = tuple(order_ids_ant[i:i+batch_size])
+    total_ant = len(orders_raw_anterior)
+    for i, order in enumerate(orders_raw_anterior):
+        order_id = order.get("OrderId")
         try:
-            items_batch = get_multiple_order_items(batch)
-            for item in items_batch:
-                order = next((o for o in orders_raw_anterior if str(o.get("OrderId")) == str(item.get("OrderId", ""))), {})
+            items = get_order_items(order_id)
+            for item in items:
                 nombre = item.get("Name", "") or ""
                 sku    = item.get("Sku", "") or ""
                 linea, categoria = extraer_linea_y_categoria(nombre, sku)
                 all_items_ant.append({
-                    "order_id":   item.get("OrderId"),
+                    "order_id":   order_id,
                     "created_at": pd.to_datetime(order.get("CreatedAt", "")),
                     "sku":        sku,
                     "nombre":     nombre,
@@ -377,12 +375,13 @@ if orders_raw_anterior:
                     "linea":      linea,
                     "categoria":  categoria,
                     "genero":     extraer_genero(nombre),
+                    "fulfillment": "Año anterior",
                     "price":      float(item.get("PaidPrice", 0) or 0),
                     "qty":        int(item.get("QtyOrdered", 1) or 1),
                 })
         except Exception:
             pass
-        prog_ant.progress(min((i + batch_size) / len(order_ids_ant), 1.0), text=f"Año anterior: {min(i+batch_size, len(order_ids_ant))} de {len(order_ids_ant)}...")
+        prog_ant.progress((i + 1) / total_ant, text=f"Año anterior: {i+1} de {total_ant}...")
     prog_ant.empty()
     df_items_anterior = pd.DataFrame(all_items_ant) if all_items_ant else pd.DataFrame()
 else:
