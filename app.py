@@ -451,6 +451,8 @@ else:
     df_orders_op = df_orders
 
 df_items_f = df_items.copy()
+if "modelo" not in df_items_f.columns:
+    df_items_f["modelo"] = df_items_f["sku"].str[:7]
 if filtro_operador:
     df_items_f = df_items_f[df_items_f["order_id"].isin(df_orders_op["order_id"])]
 if filtro_fulfillment: df_items_f = df_items_f[df_items_f["fulfillment"].isin(filtro_fulfillment)]
