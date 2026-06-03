@@ -648,6 +648,35 @@ if not df_items_f.empty:
     st.dataframe(pd_display, use_container_width=True, hide_index=True)
     st.divider()
 
+    # ── Performance Easy Fit ──────────────────────────────────────────────────
+    st.subheader("👟 Performance Easy Fit")
+    MODELOS_EASY_FIT = ["16U0362", "16M0362"]
+    df_easy = df_items_f[df_items_f["modelo"].isin(MODELOS_EASY_FIT)].copy()
+    if not df_easy.empty:
+        df_easy["sku15"] = df_easy["sku"].str[:-3]
+        easy_df = (
+            df_easy.groupby(["sku15", "nombre", "marca", "linea", "genero"])
+            .agg(unidades=("qty", "sum"), ventas=("price", "sum"))
+            .reset_index().sort_values("ventas", ascending=False)
+        )
+        total_easy = easy_df["ventas"].sum()
+        easy_df["share"] = (easy_df["ventas"] / total_easy * 100).round(1) if total_easy > 0 else 0
+        easy_display = easy_df.copy()
+        easy_display["ventas"] = easy_display["ventas"].apply(clp)
+        easy_display["share"]  = easy_display["share"].apply(lambda x: f"{x:.1f}%")
+        easy_display.columns = ["SKU 15", "Nombre", "Marca", "Línea", "Género", "Unidades", "Ventas (CLP)", "Share %"]
+        
+        # KPIs Easy Fit
+        col1, col2, col3 = st.columns(3)
+        col1.metric("🛍️ Órdenes",        f"{df_easy['order_id'].nunique():,}")
+        col2.metric("📦 Unidades",        f"{df_easy['qty'].sum():,}")
+        col3.metric("💰 Ventas (CLP)",    clp(df_easy['price'].sum()))
+        
+        st.dataframe(easy_display, use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay ventas de Easy Fit en el período seleccionado.")
+    st.divider()
+
 # ── Performance por Fulfillment ─────────────────────────────────────────────
 st.subheader("🚚 Performance por Fulfillment")
 if not df_items_f.empty:
