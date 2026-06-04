@@ -401,6 +401,8 @@ def tabla_performance(df, col, titulo, emoji, df_ant=None):
            .reset_index().sort_values("ventas", ascending=False))
     total_v = agg["ventas"].sum()
     agg["share"] = (agg["ventas"] / total_v * 100).round(1) if total_v > 0 else 0
+    # Guardar ventas para el grafico antes de renombrar
+    chart_data = agg.set_index(col)["ventas"].sort_values(ascending=False).head(10)
     if df_ant is not None and not df_ant.empty and col in df_ant.columns:
         agg_ant = df_ant.groupby(col).agg(unidades_ant=("qty","sum"), ventas_ant=("price","sum")).reset_index()
         agg = agg.merge(agg_ant, on=col, how="left").fillna(0)
@@ -413,13 +415,13 @@ def tabla_performance(df, col, titulo, emoji, df_ant=None):
         d["Var% Ventas"]   = d["Var% Ventas"].apply(lambda x: f"{x:+.1f}%" if (x is not None and not pd.isna(x)) else "N/A")
         d["Var% Unidades"] = d["Var% Unidades"].apply(lambda x: f"{x:+.1f}%" if (x is not None and not pd.isna(x)) else "N/A")
     else:
-        agg.columns = [titulo,"Órdenes","Unidades","Ventas (CLP)","Share %"]
-        d = agg.copy()
+        d = agg[[col,"ordenes","unidades","ventas","share"]].copy()
+        d.columns = [titulo,"Órdenes","Unidades","Ventas (CLP)","Share %"]
         d["Ventas (CLP)"] = d["Ventas (CLP)"].apply(clp)
         d["Share %"]      = d["Share %"].apply(lambda x: f"{x:.1f}%")
     c1, c2 = st.columns([1, 2])
     with c1: st.dataframe(d, use_container_width=True, hide_index=True)
-    with c2: st.bar_chart(agg.set_index(titulo)["ventas"].sort_values(ascending=False).head(10))
+    with c2: st.bar_chart(chart_data)
     st.divider()
 
 if not df_items_f.empty:
