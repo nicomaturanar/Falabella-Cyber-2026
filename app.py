@@ -372,7 +372,8 @@ with tab2: st.bar_chart(hourly.set_index("hour_label")["gmv"])
 
 st.subheader("🕐 Tabla hora a hora")
 horas = [f"{h:02d}:00" for h in range(ahora_chile.hour + 1)]
-hourly_table = hourly[["hour_label","ordenes","gmv"]].set_index("hour_label").reindex(horas, fill_value=0).reset_index()
+hourly_agg = hourly[["hour_label","ordenes","gmv"]].groupby("hour_label").sum()
+hourly_table = hourly_agg.reindex(horas, fill_value=0).reset_index()
 hourly_table.columns = ["Hora","Órdenes","GMV"]
 if not df_items_f.empty:
     hi = df_items_f.copy()
